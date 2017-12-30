@@ -28,6 +28,7 @@ Skip to step 8 and use features.final for classification training and testing
 Steps 5-7 continues with final features datafile creation but can be skipped
 (requires datafile not included with submission - can be made available if necessary)
 **
+
 5. add a column to student_features with value 1. (student_features$student <- 1)
 6. add a column to student_features with value 1. (nonstudent_features$student <- 0)
 7. combine ns_non_student_metrics and ns_student_metrics dataframe using rbind. (features.all <- rbind(student_features,nonstudent_features))
@@ -35,6 +36,7 @@ Steps 5-7 continues with final features datafile creation but can be skipped
 ***
 classifier training and testing
 **
+
 8. open "Model Training and Testing.Rmd"
 9. change first line of code to read "working_dataset <- features.final"
 10. run all code and observe results of classification
