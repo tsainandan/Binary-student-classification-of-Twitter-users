@@ -1,0 +1,97 @@
+---
+title: "Model Training and Testing"
+output: html_notebook
+---
+
+
+```{r}
+#
+#intial setup - take in data, load necessary libraries, split data into testing and training sets
+#
+
+#copy dataframe containing feature columns into working variable
+working_dataset <- b
+
+#required libraries
+library(caret)
+library(ellipse)
+
+# create a list of 70% of the rows in the original dataset we can use for training
+validation_index <- createDataPartition(working_dataset$student, p=0.70, list=FALSE)
+# select 20% of the data for validation
+testData <- working_dataset[-validation_index,2:8]
+# use the remaining 80% of data to training and testing the models
+trainData <- working_dataset[validation_index,2:8]
+
+```
+
+```{r}
+# boxplot for each attribute on one image
+#par(mfrow=c(1,6))
+#  for(i in 1:6) {
+#  boxplot(x[,i], main=names(training_combined)[i])
+#}
+
+```
+
+```{r}
+#
+#plot correlations betweens fetures
+#
+
+# split input (features) and output (classification)
+x <- working_dataset[,c(2:8)]
+y <- working_dataset[,9]
+
+#plot features against each other
+featurePlot(x=x, y=y, plot="ellipse")
+
+```
+
+
+```{r}
+#
+# train models
+#
+
+# Run algorithms using 10-fold cross validation
+control <- trainControl(method="cv", number=10)
+metric <- "Accuracy"
+
+set.seed(7)
+fit.lda <- train(student~., data=testData, method="lda", metric=metric, trControl=control)
+# b) nonlinear algorithms
+# CART
+set.seed(7)
+fit.cart <- train(student~., data=testData, method="rpart", metric=metric, trControl=control)
+# kNN
+set.seed(7)
+fit.knn <- train(student~., data=testData, method="knn", metric=metric, trControl=control)
+# c) advanced algorithms
+# SVM
+set.seed(7)
+fit.svm <- train(student~., data=testData, method="svmRadial", metric=metric, trControl=control)
+# Random Forest
+set.seed(7)
+fit.rf <- train(student~., data=testData, method="rf", metric=metric, trControl=control)
+```
+
+
+```{r}
+#summarize accuracy of models
+results <- resamples(list(lda=fit.lda, cart=fit.cart, knn=fit.knn, svm=fit.svm, rf=fit.rf))
+summary(results)
+dotplot(results)
+
+```
+
+
+```{r}
+#test model on testing set
+predictions <- predict(fit.svm, testData)
+confusionMatrix(predictions, testData$student)
+
+```
+
+
+
