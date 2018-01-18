@@ -1,0 +1,160 @@
+---
+title: "Twitter Feature Creation"
+output: html_notebook
+---
+
+
+!!!!!!!!!!!!!
+IMPORTANT:
+first line: input dataframe (twitter user info)
+final line: output dataframe
+!!!!!!!!!!!!!
+
+
+```{r}
+#twitter user data frame
+twitter_user_data <- streamusers.nonstudents
+
+#libraries required
+library("plyr")
+library("sentimentr")
+library("rtweet")
+
+```
+
+```{r}
+#
+#fetch tweets of users
+#
+
+#twitter API details
+access_token <- ""
+access_token_secret <- ""
+api_key <- ""
+api_secret <- ""
+
+#fetch initial user to create dataframe structure
+temp_tweets <- get_timeline(twitter_user_data[1,1],n=1, include_rts = TRUE, exclude_replies = FALSE)
+temp_tweets <- temp_tweets[0,]
+
+#fetch all users tweets
+for (non_student_user_id in streamusers.nonstudents[,1]){
+    rbind(temp_tweets,get_timeline(non_student_user_id,n=100000, include_rts = TRUE, exclude_replies = FALSE)) -> temp_tweets
+}
+
+#remove duplicates
+working_tweets_data<- temp_tweets[!duplicated(temp_tweets), ]
+```
+
+
+```{r}
+#
+#clean tweet text
+#
+
+#removing special characters from tweet text
+working_tweets_data_sentiment <- data.frame(working_tweets_data$user_id,working_tweets_data$status_id,working_tweets_data$text)
+working_tweets_data_sentiment[,3] <- gsub('http.* *', '', working_tweets_data_sentiment[,3])
+working_tweets_data_sentiment[,3] <- gsub('[[:punct:]]', '', working_tweets_data_sentiment[,3])
+working_tweets_data_sentiment[,3] <- gsub('[[:digit:]]', '', working_tweets_data_sentiment[,3])
+working_tweets_data_sentiment[,3] <- gsub('[ \t]{2,}', '', working_tweets_data_sentiment[,3])
+working_tweets_data_sentiment[,3] <- gsub('^\\s+|\\s+$', '', working_tweets_data_sentiment[,3])
+working_tweets_data_sentiment[,3] <- gsub('^\\s+|\\s+$', '', working_tweets_data_sentiment[,3])
+
+try.error = function(x)
+{
+  y = NA
+  try_error = tryCatch(tolower(x), error=function(e) e)
+  if (!inherits(try_error, "error"))
+    y = tolower(x)
+  return(y)
+}
+
+working_tweets_data_sentiment[,3] = sapply(working_tweets_data_sentiment[,3], try.error)
+
+names(working_tweets_data_sentiment)[1] <- "user_id"
+names(working_tweets_data_sentiment)[2] <- "status_id"
+names(working_tweets_data_sentiment)[3] <- "text"
+
+working_tweets_data_sentiment <- working_tweets_data_sentiment[!(is.na(working_tweets_data_sentiment$text) 
+                                                                 | working_tweets_data_sentiment$text=="" 
+                                                                 | working_tweets_data_sentiment$text==" " 
+                                                                 | working_tweets_data_sentiment$text=="  " ),]
+
+```
+
+
+```{r}
+#
+#sentiment of tweet text and features extracted 
+#
+
+#sentiment of tweet text
+sentiment_value_working_tweets_data_sentiment <- sentiment_by(working_tweets_data_sentiment[,3])
+
+#sentiment-related features
+working_tweets_data_sentiment <- cbind(working_tweets_data_sentiment,
+                                sentiment_value_working_tweets_data_sentiment$word_count,
+                                sentiment_value_working_tweets_data_sentiment$ave_sentiment)
+names(working_tweets_data_sentiment)[4] <- "word_count"
+names(working_tweets_data_sentiment)[5] <- "sentiment_value"
+```
+
+
+```{r}
+#
+#create working metrics dataframe, include relevant sentiment columns
+#
+ns_metrics_working <- ddply(working_tweets_data_sentiment, .(user_id), summarize, 
+                            mean_sentiment=mean(sentiment_value), 
+                            max_sentiment = max(sentiment_value), 
+                            min_sentiment = min(sentiment_value), 
+                            sd_sentiment = sd(sentiment_value))
+```
+
+
+```{r}
+#
+#features from Twitter user info
+#
+twitter_user_training_features <- ddply(working_tweets_data, .(user_id), summarize, 
+                                        fav_count=sum(favorite_count), 
+                                        mean_fav_count=mean(favorite_count), 
+                                        retweets_of_oc=sum(ifelse( is_retweet == FALSE, retweet_count, 0)), 
+                                        mean_retweets_of_oc=mean(ifelse( is_retweet == FALSE, retweet_count, 0)), 
+                                        retweets_of_rtwt=sum(ifelse( is_retweet == TRUE, retweet_count, 0)), 
+                                        retweet_by_user=sum(is_retweet), 
+                                        mean_retweet_by_user=mean(is_retweet),
+                                        friend_follower_ratio = friends_count/followers_count)
+
+```
+
+
+```{r}
+#
+#combine sentiment and user info features into single dataframe
+#
+twitter_user_training_features <- twitter_user_training_features[! is.na(twitter_user_training_features$user_id),]
+
+ns_metrics_working <- cbind(ns_metrics_working, 
+                            "fav_count"=twitter_user_training_features$fav_count,
+                            "mean_fav_count"=twitter_user_training_features$mean_fav_count,
+                            "retweets_of_oc"=twitter_user_training_features$retweets_of_oc,
+                            "mean_retweets_of_oc"=twitter_user_training_features$mean_retweets_of_oc,
+                            "retweets_of_rtwt"=twitter_user_training_features$retweets_of_rtwt,
+                            "retweet_by_user"=twitter_user_training_features$retweet_by_user,
+                            "mean_retweet_by_user"=twitter_user_training_features$mean_retweet_by_user,
+                            "friend_follower_ratio"=twitter_user_training_features$friend_follower_ratio)
+
+#tweet rate (tweets per day)
+ns_metrics_working <- join(ns_metrics_working,			
+                           ddply(working_tweets_data, .(user_id), summarize, 
+                                tweet_rate = length(status_id)/as.numeric(difftime(max(created_at),min(created_at)))),
+                           "user_id")
+```
+
+
+```{r}
+ns_metrics_working -> OUTPUT
+```
+
