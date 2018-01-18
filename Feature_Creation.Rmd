@@ -28,10 +28,10 @@ library("rtweet")
 #
 
 #twitter API details
-access_token <- "831885058814394368-cowIiJL6EiS8e1XKeebzKYFh9e32Wri"
-access_token_secret <- "HotdCg8h9YALtWYbybIiBcl1rXlix3Tu2CCuEkYehTdIx"
-api_key <- "GpOt55XM53dTQolnAz9fCf5jy"
-api_secret <- "vwe12wW3fkt9SDlcVBciTjHyOmffvVkpGQAFwdqMbGohODauRI"
+access_token <- ""
+access_token_secret <- ""
+api_key <- ""
+api_secret <- ""
 
 #fetch initial user to create dataframe structure
 temp_tweets <- get_timeline(twitter_user_data[1,1],n=1, include_rts = TRUE, exclude_replies = FALSE)
